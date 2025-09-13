@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  alert-bot:
+    build: .
+    container_name: tebium-alert-bot
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - WEBHOOK_PORT=8082
+      - DATABASE_URL=sqlite:///data/alerts.db
+      - ALERT_CHAT_ID=${ALERT_CHAT_ID}
+      - ENABLE_ALERTS=true
+      - LOG_LEVEL=INFO
+      - ANALYTICS_SERVER_URL=http://analytics-server:8081
+      - MAIN_BOT_URL=http://main-bot:8080
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    ports:
+      - "8082:8082"
+    networks:
+      - tebium-network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8082/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: tebium-alert-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - tebium-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  tebium-network:
+    external: true
+
+volumes:
+  redis_data:
